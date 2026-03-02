@@ -23,7 +23,7 @@ function ChatPage() {
   }, []);
 
   return (
-    <div className="relative w-full max-w-6xl h-[100dvh] md:h-[800px]">
+    <div className="relative w-full h-screen md:h-[800px] md:max-w-6xl mx-auto">
       <BorderAnimatedContainer>
 
         {/* ================= MOBILE LAYOUT ================= */}

@@ -10,26 +10,27 @@ function MessageInput() {
   const [imagePreview, setImagePreview] = useState(null);
 
   const fileInputRef = useRef(null);
-
   const { sendMessage, isSoundEnabled } = useChatStore();
 
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!text.trim() && !imagePreview) return;
+
     if (isSoundEnabled) playRandomKeyStrokeSound();
 
     sendMessage({
       text: text.trim(),
       image: imagePreview,
     });
+
     setText("");
-    setImagePreview("");
+    setImagePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
-    if (!file.type.startsWith("image/")) {
+    if (!file || !file.type.startsWith("image/")) {
       toast.error("Please select an image file");
       return;
     }
@@ -45,9 +46,11 @@ function MessageInput() {
   };
 
   return (
-    <div className="p-4 border-t border-slate-700/50">
+    <div className="p-3 md:p-4 border-t border-slate-700/50 bg-slate-900/40 backdrop-blur-sm">
+
+      {/* IMAGE PREVIEW */}
       {imagePreview && (
-        <div className="max-w-3xl mx-auto mb-3 flex items-center">
+        <div className="w-full mb-3 flex justify-start">
           <div className="relative">
             <img
               src={imagePreview}
@@ -65,7 +68,12 @@ function MessageInput() {
         </div>
       )}
 
-      <form onSubmit={handleSendMessage} className="max-w-3xl mx-auto flex space-x-4">
+      {/* INPUT ROW */}
+      <form
+        onSubmit={handleSendMessage}
+        className="w-full flex items-center gap-2"
+      >
+        {/* TEXT INPUT */}
         <input
           type="text"
           value={text}
@@ -73,10 +81,11 @@ function MessageInput() {
             setText(e.target.value);
             isSoundEnabled && playRandomKeyStrokeSound();
           }}
-          className="flex-1 bg-slate-800/50 border border-slate-700/50 rounded-lg py-2 px-4"
           placeholder="Type your message..."
+          className="flex-1 min-w-0 bg-slate-800/60 border border-slate-700/60 rounded-lg py-2 px-3 md:px-4 focus:outline-none focus:ring-2 focus:ring-cyan-500/40"
         />
 
+        {/* HIDDEN FILE INPUT */}
         <input
           type="file"
           accept="image/*"
@@ -85,19 +94,22 @@ function MessageInput() {
           className="hidden"
         />
 
+        {/* IMAGE BUTTON */}
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className={`bg-slate-800/50 text-slate-400 hover:text-slate-200 rounded-lg px-4 transition-colors ${
-            imagePreview ? "text-cyan-500" : ""
+          className={`shrink-0 h-10 w-10 flex items-center justify-center rounded-lg bg-slate-800/60 text-slate-400 hover:text-slate-200 transition ${
+            imagePreview ? "text-cyan-400" : ""
           }`}
         >
           <ImageIcon className="w-5 h-5" />
         </button>
+
+        {/* SEND BUTTON */}
         <button
           type="submit"
           disabled={!text.trim() && !imagePreview}
-          className="bg-gradient-to-r from-cyan-500 to-cyan-600 text-white rounded-lg px-4 py-2 font-medium hover:from-cyan-600 hover:to-cyan-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          className="shrink-0 h-10 w-10 flex items-center justify-center rounded-lg bg-gradient-to-r from-cyan-500 to-cyan-600 text-white hover:from-cyan-600 hover:to-cyan-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <SendIcon className="w-5 h-5" />
         </button>
@@ -105,4 +117,5 @@ function MessageInput() {
     </div>
   );
 }
+
 export default MessageInput;
