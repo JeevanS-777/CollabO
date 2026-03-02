@@ -9,7 +9,11 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: [ENV.CLIENT_URL],
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:3000",
+      "https://collab-o-eta.vercel.app"
+    ],
     credentials: true,
   },
 });
