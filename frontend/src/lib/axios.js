@@ -1,6 +1,6 @@
 import axios from "axios";
 
 export const axiosInstance = axios.create({
-  baseURL: import.meta.env.MODE === "development" ? "https://collabo-backend-x796.onrender.com/api" : "/api",
+  baseURL: import.meta.env.VITE_API_URL,
   withCredentials: true,
 });
