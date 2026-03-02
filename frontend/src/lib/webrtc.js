@@ -4,12 +4,30 @@ let localStream = null;
 let peerConnection = null;
 window.peerConnection = null;
 
-const ICE_SERVERS = {
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-  ],
-};
+  const ICE_SERVERS = {
+    iceServers: [
+      // STUN (Google)
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+
+      // FREE TURN servers
+      {
+        urls: "turn:openrelay.metered.ca:80",
+        username: "openrelayproject",
+        credential: "openrelayproject",
+      },
+      {
+        urls: "turn:openrelay.metered.ca:443",
+        username: "openrelayproject",
+        credential: "openrelayproject",
+      },
+      {
+        urls: "turn:openrelay.metered.ca:443?transport=tcp",
+        username: "openrelayproject",
+        credential: "openrelayproject",
+      },
+    ],
+  };
 
 export async function createLocalStream(facingMode = "user") {
   localStream = await navigator.mediaDevices.getUserMedia({
