@@ -2,6 +2,7 @@
 
 let localStream = null;
 let peerConnection = null;
+window.peerConnection = null;
 
 const ICE_SERVERS = {
   iceServers: [
@@ -24,18 +25,27 @@ export function getLocalStream() {
 
 export function createPeerConnection(onTrack, onIceCandidate) {
   peerConnection = new RTCPeerConnection(ICE_SERVERS);
+  window.peerConnection = peerConnection;
 
-  // send ICE candidates to signaling server
+  // receive remote stream
+  peerConnection.ontrack = (event) => {
+    const remoteStream = event.streams[0];
+    if (remoteStream) onTrack(remoteStream);
+  };
+
+  // ICE exchange
   peerConnection.onicecandidate = (event) => {
     if (event.candidate) onIceCandidate(event.candidate);
   };
 
-  // receive remote stream
-  peerConnection.ontrack = (event) => {
-    onTrack(event.streams[0]);
+  // VERY IMPORTANT — ensures media flows
+  peerConnection.onconnectionstatechange = () => {
+    if (peerConnection.connectionState === "connected") {
+      console.log("WebRTC connected");
+    }
   };
 
-  // add local tracks
+  // add tracks AFTER handlers attached
   localStream.getTracks().forEach((track) => {
     peerConnection.addTrack(track, localStream);
   });
@@ -51,8 +61,11 @@ export async function createOffer() {
 
 export async function createAnswer(offer) {
   await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
+  // force negotiation
   const answer = await peerConnection.createAnswer();
   await peerConnection.setLocalDescription(answer);
+
   return answer;
 }
 
