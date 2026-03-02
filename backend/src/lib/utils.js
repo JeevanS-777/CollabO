@@ -15,7 +15,7 @@ export const generateToken = (userId, res) => {
     maxAge: 7 * 24 * 60 * 60 * 1000,
     httpOnly: true, 
     secure: ENV.NODE_ENV === "production",
-    sameSite: ENV.NODE_ENV === "production" ? "none" : "lax",
+    sameSite: ENV.NODE_ENV === "production" ? "none" : "lax", // Changed
   });
 
   return token;
