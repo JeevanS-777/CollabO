@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { useCallStore } from "./useCallStore";
 import { axiosInstance } from "../lib/axios";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
@@ -97,6 +98,27 @@ export const useAuthStore = create((set, get) => ({
     // listen for online users event
     socket.on("getOnlineUsers", (userIds) => {
       set({ onlineUsers: userIds });
+    });
+
+        // ================= CALL EVENTS =================
+    socket.on("call:incoming", (data) => {
+      useCallStore.getState().handleIncomingCall(data);
+    });
+
+    socket.on("call:accepted", (data) => {
+      useCallStore.getState().handleAccepted(data);
+    });
+
+    socket.on("call:ice", (data) => {
+      useCallStore.getState().handleIce(data);
+    });
+
+    socket.on("call:rejected", () => {
+      useCallStore.getState().handleEnded();
+    });
+
+    socket.on("call:ended", () => {
+      useCallStore.getState().handleEnded();
     });
   },
 

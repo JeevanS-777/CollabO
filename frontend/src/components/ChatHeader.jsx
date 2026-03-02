@@ -3,10 +3,13 @@ import { ArrowLeft } from "lucide-react";
 import { useChatStore } from "../store/useChatStore";
 import { useEffect, useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
+import { Phone } from "lucide-react";
+import { useCallStore } from "../store/useCallStore";
 
 function ChatHeader() {
   const { selectedUser, setSelectedUser } = useChatStore();
   const { onlineUsers } = useAuthStore();
+  const { startCall } = useCallStore();
 
   // prevent crash if user becomes null
   if (!selectedUser) return null;
@@ -67,12 +70,23 @@ function ChatHeader() {
         </div>
       </div>
 
-      {/* Desktop Close Button */}
-      {!isMobile && (
-        <button onClick={() => setSelectedUser(null)}>
-          <XIcon className="w-5 h-5 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer" />
+      <div className="flex items-center gap-3">
+
+        {/* Call Button */}
+        <button
+          onClick={() => startCall(selectedUser)}
+          className="p-2 rounded-lg bg-slate-700/60 hover:bg-slate-600 transition"
+        >
+          <Phone className="w-5 h-5 text-green-400" />
         </button>
-      )}
+
+        {/* Desktop Close */}
+        {!isMobile && (
+          <button onClick={() => setSelectedUser(null)}>
+            <XIcon className="w-5 h-5 text-slate-400 hover:text-slate-200 transition-colors cursor-pointer" />
+          </button>
+        )}
+      </div>
     </div>
   );
 }

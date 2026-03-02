@@ -8,6 +8,7 @@ import ChatsList from "../components/ChatsList";
 import ContactList from "../components/ContactList";
 import ChatContainer from "../components/ChatContainer";
 import NoConversationPlaceholder from "../components/NoConversationPlaceholder";
+import CallModal from "../components/CallModal";
 
 function ChatPage() {
   const { activeTab, selectedUser } = useChatStore();
@@ -67,6 +68,8 @@ function ChatPage() {
         )}
 
       </BorderAnimatedContainer>
+
+      <CallModal />
     </div>
   );
 }
