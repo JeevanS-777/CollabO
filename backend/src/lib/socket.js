@@ -1,7 +1,6 @@
 import { Server } from "socket.io";
 import http from "http";
 import express from "express";
-import { ENV } from "./env.js";
 import { socketAuthMiddleware } from "../middleware/socket.auth.middleware.js";
 
 const app = express();
@@ -12,35 +11,83 @@ const io = new Server(server, {
     origin: [
       "http://localhost:5173",
       "http://localhost:3000",
-      "https://collab-o-eta.vercel.app"
+      "https://collab-o-eta.vercel.app",
     ],
     credentials: true,
   },
 });
 
-// apply authentication middleware to all socket connections
+// ===== AUTH =====
 io.use(socketAuthMiddleware);
 
-// we will use this function to check if the user is online or not
+// ===== ONLINE USERS MAP =====
+const userSocketMap = {}; // { userId: socketId }
+
 export function getReceiverSocketId(userId) {
   return userSocketMap[userId];
 }
 
-// this is for storig online users
-const userSocketMap = {}; // {userId:socketId}
-
+// ===== CONNECTION =====
 io.on("connection", (socket) => {
-  console.log("A user connected", socket.user.fullName);
-
   const userId = socket.userId;
   userSocketMap[userId] = socket.id;
 
-  // io.emit() is used to send events to all connected clients
+  console.log("User connected:", socket.user.fullName);
+
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-  // with socket.on we listen for events from clients
+  // =====================================================
+  // ================= CALLING EVENTS =====================
+  // =====================================================
+
+  // Caller sends call request
+  socket.on("call:offer", ({ to, offer }) => {
+    const receiverSocketId = getReceiverSocketId(to);
+    if (!receiverSocketId) return;
+
+    io.to(receiverSocketId).emit("call:incoming", {
+      from: userId,
+      offer,
+      user: socket.user,
+    });
+  });
+
+  // Receiver accepts
+  socket.on("call:answer", ({ to, answer }) => {
+    const callerSocketId = getReceiverSocketId(to);
+    if (!callerSocketId) return;
+
+    io.to(callerSocketId).emit("call:accepted", { answer });
+  });
+
+  // ICE candidate exchange
+  socket.on("call:ice", ({ to, candidate }) => {
+    const peerSocketId = getReceiverSocketId(to);
+    if (!peerSocketId) return;
+
+    io.to(peerSocketId).emit("call:ice", { candidate });
+  });
+
+  // Reject call
+  socket.on("call:reject", ({ to }) => {
+    const callerSocketId = getReceiverSocketId(to);
+    if (!callerSocketId) return;
+
+    io.to(callerSocketId).emit("call:rejected");
+  });
+
+  // End call
+  socket.on("call:end", ({ to }) => {
+    const peerSocketId = getReceiverSocketId(to);
+    if (!peerSocketId) return;
+
+    io.to(peerSocketId).emit("call:ended");
+  });
+
+  // =====================================================
+
   socket.on("disconnect", () => {
-    console.log("A user disconnected", socket.user.fullName);
+    console.log("User disconnected:", socket.user.fullName);
     delete userSocketMap[userId];
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });
