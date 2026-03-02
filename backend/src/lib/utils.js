@@ -16,6 +16,7 @@ export const generateToken = (userId, res) => {
     httpOnly: true, 
     secure: true,
     sameSite: "none",
+    path: "/",
   });
 
   return token;
