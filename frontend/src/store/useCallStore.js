@@ -12,66 +12,105 @@ export const useCallStore = create((set, get) => ({
   peerUser: null,
   incomingCall: null,
 
-      initializePeer: (userId) => {
-      if (peerInstance) return;
+  initializePeer: (userId) => {
+    if (peerInstance) return;
 
-      peerInstance = new Peer(userId);
-
-      peerInstance.on("open", (id) => {
-        console.log("Peer connected with id:", id);
-      });
-
-      peerInstance.on("call", async (call) => {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: true,
-        });
-
-        set({
-          incomingCall: call,
-          localStream: stream,
-          callState: "ringing",
-        });
-      });
-    },
-
-  startCall: async (user) => {
-    const { authUser } = useAuthStore.getState();
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: true,
+    // We use Google's public STUN servers to help bypass firewalls
+    peerInstance = new Peer(userId, {
+      config: {
+        iceServers: [
+          { urls: "stun:stun.l.google.com:19302" },
+          { urls: "stun:stun1.l.google.com:19302" },
+        ],
+      },
     });
 
-    set({ localStream: stream, peerUser: user, callState: "calling" });
-
-    const call = peerInstance.call(user._id, stream);
-
-    call.on("stream", (remoteStream) => {
-      set({ remoteStream, callState: "connected" });
+    peerInstance.on("open", (id) => {
+      console.log("Peer connected with id:", id);
     });
 
-    currentCall = call;
+    peerInstance.on("call", (call) => {
+      // When a call comes in, we save the call object but don't answer yet
+      set({
+        incomingCall: call,
+        callState: "ringing",
+      });
+    });
   },
 
-  acceptCall: () => {
-    const { incomingCall, localStream } = get();
+  startCall: async (user) => {
+    const { socket, authUser } = useAuthStore.getState();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
 
-    incomingCall.answer(localStream);
+      set({ localStream: stream, peerUser: user, callState: "calling" });
 
-    incomingCall.on("stream", (remoteStream) => {
-      set({ remoteStream, callState: "connected" });
-    });
+      // Notify the receiver via Socket.io so their modal pops up
+      socket.emit("call:offer", { to: user._id, user: authUser });
 
-    currentCall = incomingCall;
+      const call = peerInstance.call(user._id, stream);
+
+      call.on("stream", (remoteStream) => {
+        set({ remoteStream, callState: "connected" });
+      });
+
+      call.on("close", () => get().endCall());
+      currentCall = call;
+    } catch (err) {
+      console.error("Failed to get local stream", err);
+    }
+  },
+
+  acceptCall: async () => {
+    const { incomingCall } = get();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+
+      incomingCall.answer(stream);
+      set({ localStream: stream, callState: "connected" });
+
+      incomingCall.on("stream", (remoteStream) => {
+        set({ remoteStream, callState: "connected" });
+      });
+
+      currentCall = incomingCall;
+    } catch (err) {
+      console.error("Failed to get local stream for answering", err);
+    }
   },
 
   rejectCall: () => {
+    const { incomingCall } = get();
+    const { socket } = useAuthStore.getState();
+    
+    // Notify the caller that call was rejected
+    if (incomingCall) {
+        socket.emit("call:reject", { to: incomingCall.peer });
+    }
+    
     set({ incomingCall: null, callState: "idle" });
   },
 
   endCall: () => {
+    const { peerUser, incomingCall } = get();
+    const { socket } = useAuthStore.getState();
+
+    // Notify the other party
+    const targetId = peerUser?._id || incomingCall?.peer;
+    if (targetId) socket.emit("call:end", { to: targetId });
+
     if (currentCall) currentCall.close();
-    if (peerInstance) peerInstance.destroy();
+    
+    // Stop all camera/mic tracks
+    if (get().localStream) {
+      get().localStream.getTracks().forEach(track => track.stop());
+    }
 
     set({
       callState: "idle",
@@ -81,7 +120,6 @@ export const useCallStore = create((set, get) => ({
       incomingCall: null,
     });
 
-    peerInstance = null;
     currentCall = null;
   },
 }));
