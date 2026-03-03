@@ -1,6 +1,5 @@
 import { Mic, MicOff, Video, VideoOff, PhoneOff, RefreshCcw } from "lucide-react";
 import { useCallStore } from "../store/useCallStore";
-import { getLocalStream } from "../lib/webrtc";
 import { useState } from "react";
 
 export default function CallControls() {
