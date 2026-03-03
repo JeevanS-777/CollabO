@@ -1,116 +1,87 @@
 import { create } from "zustand";
 import { useAuthStore } from "./useAuthStore";
-import {
-  createLocalStream,
-  createPeerConnection,
-  createOffer,
-  createAnswer,
-  setRemoteAnswer,
-  addIceCandidate,
-  closeConnection,
-} from "../lib/webrtc";
+import Peer from "peerjs";
+
+let peerInstance = null;
+let currentCall = null;
 
 export const useCallStore = create((set, get) => ({
-  callState: "idle", // idle | calling | ringing | connected
-  incomingCall: null,
+  callState: "idle",
   localStream: null,
   remoteStream: null,
   peerUser: null,
+  incomingCall: null,
 
-  // start outgoing call
+      initializePeer: (userId) => {
+      if (peerInstance) return;
+
+      peerInstance = new Peer(userId);
+
+      peerInstance.on("open", (id) => {
+        console.log("Peer connected with id:", id);
+      });
+
+      peerInstance.on("call", async (call) => {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+
+        set({
+          incomingCall: call,
+          localStream: stream,
+          callState: "ringing",
+        });
+      });
+    },
+
   startCall: async (user) => {
-    const socket = useAuthStore.getState().socket;
-
-    const stream = await createLocalStream();
-    set({ localStream: stream, callState: "calling", peerUser: user });
-
-      createPeerConnection(
-      (remote) => set({ remoteStream: remote, callState: "connected" }),
-      (candidate) => socket.emit("call:ice", { to: user._id, candidate })
-    );
-
-    const offer = await createOffer();
-    socket.emit("call:offer", { to: user._id, offer });
-  },
-
-  // receive incoming call
-    handleIncomingCall: async ({ from, offer, user }) => {
-    const socket = useAuthStore.getState().socket;
-
-    // get local media first
-    const stream = await createLocalStream();
-
-    // create peer
-    createPeerConnection(
-      (remote) => set({ remoteStream: remote, callState: "connected" }),
-      (candidate) => socket.emit("call:ice", { to: from, candidate })
-    );
-
-    // IMPORTANT: set remote offer BEFORE answer
-    await createAnswer(offer);
-
-    set({
-      incomingCall: { from, offer, user },
-      peerUser: user,
-      localStream: stream,
-      callState: "ringing"
-    });
-  },
-
-  // accept call
-    acceptCall: async () => {
-    const { incomingCall } = get();
-    const socket = useAuthStore.getState().socket;
-
-    // localDescription already set in createAnswer
-    socket.emit("call:answer", {
-      to: incomingCall.from,
-      answer: window.peerConnection.localDescription
+    const { authUser } = useAuthStore.getState();
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true,
     });
 
-    set({ callState: "connected" });
+    set({ localStream: stream, peerUser: user, callState: "calling" });
+
+    const call = peerInstance.call(user._id, stream);
+
+    call.on("stream", (remoteStream) => {
+      set({ remoteStream, callState: "connected" });
+    });
+
+    currentCall = call;
+  },
+
+  acceptCall: () => {
+    const { incomingCall, localStream } = get();
+
+    incomingCall.answer(localStream);
+
+    incomingCall.on("stream", (remoteStream) => {
+      set({ remoteStream, callState: "connected" });
+    });
+
+    currentCall = incomingCall;
   },
 
   rejectCall: () => {
-    const { incomingCall } = get();
-    const socket = useAuthStore.getState().socket;
-    socket.emit("call:reject", { to: incomingCall.from });
     set({ incomingCall: null, callState: "idle" });
   },
 
   endCall: () => {
-    const { peerUser } = get();
-    const socket = useAuthStore.getState().socket;
+    if (currentCall) currentCall.close();
+    if (peerInstance) peerInstance.destroy();
 
-    if (peerUser) socket.emit("call:end", { to: peerUser._id });
-
-    closeConnection();
     set({
       callState: "idle",
-      incomingCall: null,
       localStream: null,
       remoteStream: null,
       peerUser: null,
-    });
-  },
-
-  handleAccepted: async ({ answer }) => {
-    await setRemoteAnswer(answer);
-    set({ callState: "connected" });
-  },
-
-  handleIce: async ({ candidate }) => {
-  await addIceCandidate(candidate);
-},
-
-  handleEnded: () => {
-    closeConnection();
-    set({
-      callState: "idle",
       incomingCall: null,
-      localStream: null,
-      remoteStream: null,
-      peerUser: null,
     });
+
+    peerInstance = null;
+    currentCall = null;
   },
 }));
