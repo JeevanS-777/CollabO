@@ -17,10 +17,11 @@ const io = new Server(server, {
   },
 });
 
-// ===== AUTH =====
 io.use(socketAuthMiddleware);
 
 const userSocketMap = {}; 
+// NEW: Keep track of active calls to handle refreshes/disconnects
+const userCallMap = new Map(); 
 
 export function getReceiverSocketId(userId) {
   return userSocketMap[userId];
@@ -35,24 +36,29 @@ io.on("connection", (socket) => {
 
   // --- CALLING EVENTS ---
 
-  // Caller hits "Call" button
   socket.on("call:offer", ({ to, user }) => {
     const receiverSocketId = getReceiverSocketId(to);
+    // Track that these two are now in a potential call session
+    userCallMap.set(userId, to);
+    userCallMap.set(to, userId);
+
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("call:incoming", { from: userId, user });
     }
   });
 
-  // Receiver hits "Reject"
   socket.on("call:reject", ({ to }) => {
+    userCallMap.delete(userId);
+    userCallMap.delete(to);
     const callerSocketId = getReceiverSocketId(to);
     if (callerSocketId) {
       io.to(callerSocketId).emit("call:rejected");
     }
   });
 
-  // Either party hits "End Call"
   socket.on("call:end", ({ to }) => {
+    userCallMap.delete(userId);
+    userCallMap.delete(to);
     const peerSocketId = getReceiverSocketId(to);
     if (peerSocketId) {
       io.to(peerSocketId).emit("call:ended");
@@ -61,6 +67,19 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.user.fullName);
+
+    // BUG FIX: Handle Browser Refresh/Close
+    // Check if the disconnected user was in a call
+    const peerId = userCallMap.get(userId);
+    if (peerId) {
+      const peerSocketId = getReceiverSocketId(peerId);
+      if (peerSocketId) {
+        io.to(peerSocketId).emit("call:ended");
+      }
+      userCallMap.delete(userId);
+      userCallMap.delete(peerId);
+    }
+
     delete userSocketMap[userId];
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });
