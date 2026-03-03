@@ -106,3 +106,46 @@ export const getChatPartners = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+export const deleteMessage = async (req, res) => {
+  try {
+    const { id: messageId } = req.params;
+    const userId = req.user._id;
+
+    const message = await Message.findById(messageId);
+
+    if (!message) {
+      return res.status(404).json({ message: "Message not found" });
+    }
+
+    // Security: Only the sender can delete the message
+    if (message.senderId.toString() !== userId.toString()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    // If it's an image, delete from Cloudinary
+    if (message.image) {
+      try {
+        // Extract public_id from the URL
+        const publicId = message.image.split("/").pop().split(".")[0];
+        await cloudinary.uploader.destroy(publicId);
+      } catch (cloudinaryErr) {
+        console.log("Cloudinary delete failed:", cloudinaryErr);
+      }
+    }
+
+    await Message.findByIdAndDelete(messageId);
+
+    // Real-time notify the receiver
+    const receiverSocketId = getReceiverSocketId(message.receiverId);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("messageDeleted", messageId);
+    }
+
+    res.status(200).json({ message: "Deleted successfully" });
+  } catch (error) {
+    console.log("Error in deleteMessage:", error.message);
+    res.status(500).json({ error: "Internal server error" });
+  }
+};
+
