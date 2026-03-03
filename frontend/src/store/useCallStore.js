@@ -24,7 +24,7 @@ export const useCallStore = create((set, get) => ({
     const stream = await createLocalStream();
     set({ localStream: stream, callState: "calling", peerUser: user });
 
-    const pc = createPeerConnection(
+      createPeerConnection(
       (remote) => set({ remoteStream: remote, callState: "connected" }),
       (candidate) => socket.emit("call:ice", { to: user._id, candidate })
     );
@@ -34,25 +34,41 @@ export const useCallStore = create((set, get) => ({
   },
 
   // receive incoming call
-  handleIncomingCall: async ({ from, offer, user }) => {
-    set({ incomingCall: { from, offer, user }, callState: "ringing" });
+    handleIncomingCall: async ({ from, offer, user }) => {
+    const socket = useAuthStore.getState().socket;
+
+    // get local media first
+    const stream = await createLocalStream();
+
+    // create peer
+    createPeerConnection(
+      (remote) => set({ remoteStream: remote, callState: "connected" }),
+      (candidate) => socket.emit("call:ice", { to: from, candidate })
+    );
+
+    // IMPORTANT: set remote offer BEFORE answer
+    await createAnswer(offer);
+
+    set({
+      incomingCall: { from, offer, user },
+      peerUser: user,
+      localStream: stream,
+      callState: "ringing"
+    });
   },
 
   // accept call
-  acceptCall: async () => {
+    acceptCall: async () => {
     const { incomingCall } = get();
     const socket = useAuthStore.getState().socket;
 
-    const stream = await createLocalStream();
-    set({ localStream: stream, peerUser: incomingCall.user });
+    // localDescription already set in createAnswer
+    socket.emit("call:answer", {
+      to: incomingCall.from,
+      answer: window.peerConnection.localDescription
+    });
 
-    const pc = createPeerConnection(
-      (remote) => set({ remoteStream: remote, callState: "connected" }),
-      (candidate) => socket.emit("call:ice", { to: incomingCall.from, candidate })
-    );
-
-    const answer = await createAnswer(incomingCall.offer);
-    socket.emit("call:answer", { to: incomingCall.from, answer });
+    set({ callState: "connected" });
   },
 
   rejectCall: () => {
@@ -84,8 +100,8 @@ export const useCallStore = create((set, get) => ({
   },
 
   handleIce: async ({ candidate }) => {
-    await addIceCandidate(candidate);
-  },
+  await addIceCandidate(candidate);
+},
 
   handleEnded: () => {
     closeConnection();
