@@ -45,28 +45,33 @@ export function createPeerConnection(onTrack, onIceCandidate) {
   peerConnection = new RTCPeerConnection(ICE_SERVERS);
   window.peerConnection = peerConnection;
 
-  // receive remote stream
+  // 🔥 CRITICAL FIX — explicitly declare transceivers
+  peerConnection.addTransceiver("video", { direction: "sendrecv" });
+  peerConnection.addTransceiver("audio", { direction: "sendrecv" });
+
   peerConnection.ontrack = (event) => {
+    console.log("TRACK EVENT FIRED", event.streams);
     const remoteStream = event.streams[0];
-    if (remoteStream) onTrack(remoteStream);
-  };
-
-  // ICE exchange
-  peerConnection.onicecandidate = (event) => {
-    if (event.candidate) onIceCandidate(event.candidate);
-  };
-
-  // VERY IMPORTANT — ensures media flows
-  peerConnection.onconnectionstatechange = () => {
-    if (peerConnection.connectionState === "connected") {
-      console.log("WebRTC connected");
+    if (remoteStream) {
+      onTrack(remoteStream);
     }
   };
 
-  // add tracks AFTER handlers attached
-  localStream.getTracks().forEach((track) => {
-    peerConnection.addTrack(track, localStream);
-  });
+  peerConnection.onicecandidate = (event) => {
+    if (event.candidate) {
+      onIceCandidate(event.candidate);
+    }
+  };
+
+  peerConnection.onconnectionstatechange = () => {
+    console.log("Connection state:", peerConnection.connectionState);
+  };
+
+  if (localStream) {
+    localStream.getTracks().forEach((track) => {
+      peerConnection.addTrack(track, localStream);
+    });
+  }
 
   return peerConnection;
 }
