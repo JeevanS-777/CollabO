@@ -20,71 +20,44 @@ const io = new Server(server, {
 // ===== AUTH =====
 io.use(socketAuthMiddleware);
 
-// ===== ONLINE USERS MAP =====
-const userSocketMap = {}; // { userId: socketId }
+const userSocketMap = {}; 
 
 export function getReceiverSocketId(userId) {
   return userSocketMap[userId];
 }
 
-// ===== CONNECTION =====
 io.on("connection", (socket) => {
   const userId = socket.userId;
   userSocketMap[userId] = socket.id;
 
   console.log("User connected:", socket.user.fullName);
-
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-  // =====================================================
-  // ================= CALLING EVENTS =====================
-  // =====================================================
+  // --- CALLING EVENTS ---
 
-  // Caller sends call request
-  socket.on("call:offer", ({ to, offer }) => {
+  // Caller hits "Call" button
+  socket.on("call:offer", ({ to, user }) => {
     const receiverSocketId = getReceiverSocketId(to);
-    if (!receiverSocketId) return;
-
-    io.to(receiverSocketId).emit("call:incoming", {
-      from: userId,
-      offer,
-      user: socket.user,
-    });
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("call:incoming", { from: userId, user });
+    }
   });
 
-  // Receiver accepts
-  socket.on("call:answer", ({ to, answer }) => {
-    const callerSocketId = getReceiverSocketId(to);
-    if (!callerSocketId) return;
-
-    io.to(callerSocketId).emit("call:accepted", { answer });
-  });
-
-  // ICE candidate exchange
-  socket.on("call:ice", ({ to, candidate }) => {
-    const peerSocketId = getReceiverSocketId(to);
-    if (!peerSocketId) return;
-
-    io.to(peerSocketId).emit("call:ice", { candidate });
-  });
-
-  // Reject call
+  // Receiver hits "Reject"
   socket.on("call:reject", ({ to }) => {
     const callerSocketId = getReceiverSocketId(to);
-    if (!callerSocketId) return;
-
-    io.to(callerSocketId).emit("call:rejected");
+    if (callerSocketId) {
+      io.to(callerSocketId).emit("call:rejected");
+    }
   });
 
-  // End call
+  // Either party hits "End Call"
   socket.on("call:end", ({ to }) => {
     const peerSocketId = getReceiverSocketId(to);
-    if (!peerSocketId) return;
-
-    io.to(peerSocketId).emit("call:ended");
+    if (peerSocketId) {
+      io.to(peerSocketId).emit("call:ended");
+    }
   });
-
-  // =====================================================
 
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.user.fullName);

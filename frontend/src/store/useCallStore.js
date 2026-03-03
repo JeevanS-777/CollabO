@@ -15,7 +15,6 @@ export const useCallStore = create((set, get) => ({
   initializePeer: (userId) => {
     if (peerInstance) return;
 
-    // We use Google's public STUN servers to help bypass firewalls
     peerInstance = new Peer(userId, {
       config: {
         iceServers: [
@@ -25,40 +24,30 @@ export const useCallStore = create((set, get) => ({
       },
     });
 
-    peerInstance.on("open", (id) => {
-      console.log("Peer connected with id:", id);
-    });
+    peerInstance.on("open", (id) => console.log("Peer connected with id:", id));
 
     peerInstance.on("call", (call) => {
-      // When a call comes in, we save the call object but don't answer yet
-      set({
-        incomingCall: call,
-        callState: "ringing",
-      });
+      // We don't ask for media yet; we wait for user to click "Accept"
+      set({ incomingCall: call, callState: "ringing" });
     });
   },
 
   startCall: async (user) => {
     const { socket, authUser } = useAuthStore.getState();
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
-
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       set({ localStream: stream, peerUser: user, callState: "calling" });
 
-      // Notify the receiver via Socket.io so their modal pops up
       socket.emit("call:offer", { to: user._id, user: authUser });
 
       const call = peerInstance.call(user._id, stream);
+      currentCall = call;
 
       call.on("stream", (remoteStream) => {
         set({ remoteStream, callState: "connected" });
       });
 
       call.on("close", () => get().endCall());
-      currentCall = call;
     } catch (err) {
       console.error("Failed to get local stream", err);
     }
@@ -66,13 +55,14 @@ export const useCallStore = create((set, get) => ({
 
   acceptCall: async () => {
     const { incomingCall } = get();
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true,
-      });
+    if (!incomingCall) return;
 
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      
+      // CRITICAL: You must answer the call with the stream!
       incomingCall.answer(stream);
+      
       set({ localStream: stream, callState: "connected" });
 
       incomingCall.on("stream", (remoteStream) => {
@@ -88,28 +78,23 @@ export const useCallStore = create((set, get) => ({
   rejectCall: () => {
     const { incomingCall } = get();
     const { socket } = useAuthStore.getState();
-    
-    // Notify the caller that call was rejected
     if (incomingCall) {
-        socket.emit("call:reject", { to: incomingCall.peer });
+      socket.emit("call:reject", { to: incomingCall.peer });
+      incomingCall.close();
     }
-    
-    set({ incomingCall: null, callState: "idle" });
+    set({ incomingCall: null, callState: "idle", peerUser: null });
   },
 
   endCall: () => {
-    const { peerUser, incomingCall } = get();
+    const { peerUser, incomingCall, localStream } = get();
     const { socket } = useAuthStore.getState();
 
-    // Notify the other party
     const targetId = peerUser?._id || incomingCall?.peer;
     if (targetId) socket.emit("call:end", { to: targetId });
 
     if (currentCall) currentCall.close();
-    
-    // Stop all camera/mic tracks
-    if (get().localStream) {
-      get().localStream.getTracks().forEach(track => track.stop());
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
     }
 
     set({
@@ -119,7 +104,6 @@ export const useCallStore = create((set, get) => ({
       peerUser: null,
       incomingCall: null,
     });
-
     currentCall = null;
   },
 }));
