@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { useAuthStore } from "./useAuthStore";
-import { useChatStore } from "./useChatStore"; // Added to find user info
+import { useChatStore } from "./useChatStore"; 
 import Peer from "peerjs";
 import toast from "react-hot-toast";
 
@@ -24,14 +24,13 @@ export const useCallStore = create((set, get) => ({
     });
 
     peerInstance.on("call", (call) => {
-      // Find the caller's info from allContacts to show their name
       const { allContacts } = useChatStore.getState();
       const caller = allContacts.find((u) => u._id === call.peer);
       
       set({ 
         incomingCall: call, 
         callState: "ringing",
-        peerUser: caller // This ensures the receiver sees the name
+        peerUser: caller 
       });
     });
 
@@ -65,25 +64,39 @@ export const useCallStore = create((set, get) => ({
 
   toggleCamera: async () => {
     const newMode = get().facingMode === "user" ? "environment" : "user";
-    set({ facingMode: newMode });
+    const oldStream = get().localStream;
 
-    if (get().localStream) {
-      get().localStream.getTracks().forEach(track => track.stop());
-      try {
-        const newStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: newMode },
-          audio: true
-        });
-        set({ localStream: newStream });
+    try {
+      // 1. Get new stream with BOTH Video and Audio
+      const newStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: newMode },
+        audio: true
+      });
+
+      // 2. CRITICAL: Replace both tracks in the active peer connection
+      if (currentCall && currentCall.peerConnection) {
+        const senders = currentCall.peerConnection.getSenders();
         
-        if (currentCall && currentCall.peerConnection) {
-          const videoTrack = newStream.getVideoTracks()[0];
-          const sender = currentCall.peerConnection.getSenders().find(s => s.track.kind === 'video');
-          if (sender) sender.replaceTrack(videoTrack);
-        }
-      } catch (err) {
-        toast.error("Error switching camera");
+        // Replace Video
+        const videoTrack = newStream.getVideoTracks()[0];
+        const videoSender = senders.find(s => s.track?.kind === "video");
+        if (videoSender) await videoSender.replaceTrack(videoTrack);
+
+        // Replace Audio (This fixes the mute bug!)
+        const audioTrack = newStream.getAudioTracks()[0];
+        const audioSender = senders.find(s => s.track?.kind === "audio");
+        if (audioSender) await audioSender.replaceTrack(audioTrack);
       }
+
+      // 3. Clean up old tracks
+      if (oldStream) {
+        oldStream.getTracks().forEach(track => track.stop());
+      }
+
+      set({ localStream: newStream, facingMode: newMode });
+    } catch (err) {
+      console.error("Camera switch error:", err);
+      toast.error("Failed to switch camera");
     }
   },
 
