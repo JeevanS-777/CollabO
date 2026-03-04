@@ -7,7 +7,7 @@ export const protectRoute = async (req, res, next) => {
     // try normal cookie
     let token = req.cookies?.jwt;
 
-    // fallback for cross-site cookies (VERY IMPORTANT FOR VERCEL + RENDER)
+    // fallback for cross-site cookies
     if (!token && req.headers.cookie) {
       const rawCookie = req.headers.cookie
         .split(";")

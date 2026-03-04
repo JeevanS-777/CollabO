@@ -34,7 +34,7 @@ io.on("connection", (socket) => {
   console.log("User connected:", socket.user.fullName);
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
-  // --- CALLING EVENTS ---
+  // CALLING EVENTS
 
   socket.on("call:offer", ({ to, user }) => {
     const receiverSocketId = getReceiverSocketId(to);
@@ -68,7 +68,6 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.user.fullName);
 
-    // BUG FIX: Handle Browser Refresh/Close
     // Check if the disconnected user was in a call
     const peerId = userCallMap.get(userId);
     if (peerId) {
