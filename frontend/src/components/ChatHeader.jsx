@@ -11,7 +11,7 @@ function ChatHeader() {
   const { onlineUsers } = useAuthStore();
   const { startCall } = useCallStore();
 
-  // prevent crash if user becomes null
+  // Prevent crash if user becomes null
   if (!selectedUser) return null;
 
   const isOnline = onlineUsers.includes(selectedUser._id);
@@ -26,7 +26,7 @@ function ChatHeader() {
     return () => window.removeEventListener("resize", checkScreen);
   }, []);
 
-  // ESC key (desktop convenience)
+  // ESC key 
   useEffect(() => {
     const handleEscKey = (event) => {
       if (event.key === "Escape") setSelectedUser(null);

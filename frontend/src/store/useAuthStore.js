@@ -83,7 +83,7 @@ export const useAuthStore = create((set, get) => ({
       set({ onlineUsers: userIds });
     });
 
-    // --- CALLING EVENT LISTENERS ---
+    // Calling event listeners
     socket.on("call:incoming", ({ from, user }) => {
       useCallStore.setState({ peerUser: user, callState: "ringing" });
     });

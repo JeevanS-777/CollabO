@@ -71,7 +71,7 @@ export const useChatStore = create((set, get) => ({
       createdAt: new Date().toISOString(),
       isOptimistic: true, // flag to identify optimistic messages (optional)
     };
-    // immidetaly update the ui by adding the message
+    // Immediately update the UI by adding the message
     set({ messages: [...messages, optimisticMessage] });
 
     try {
@@ -129,6 +129,5 @@ export const useChatStore = create((set, get) => ({
     socket.off("newMessage");
     socket.off("messageDeleted");
   },
-
 
 }));

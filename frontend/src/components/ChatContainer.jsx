@@ -5,7 +5,7 @@ import ChatHeader from "./ChatHeader";
 import NoChatHistoryPlaceholder from "./NoChatHistoryPlaceholder";
 import MessageInput from "./MessageInput";
 import MessagesLoadingSkeleton from "./MessagesLoadingSkeleton";
-import { Trash2 } from "lucide-react"; // Import the delete icon
+import { Trash2 } from "lucide-react"; // To import the delete icon
 
 function ChatContainer() {
   const {
@@ -15,7 +15,7 @@ function ChatContainer() {
     isMessagesLoading,
     subscribeToMessages,
     unsubscribeFromMessages,
-    deleteMessage, // Added deleteMessage from store
+    deleteMessage, 
   } = useChatStore();
   
   const { authUser } = useAuthStore();
@@ -26,7 +26,6 @@ function ChatContainer() {
     getMessagesByUserId(selectedUser._id);
     subscribeToMessages();
 
-    // clean up
     return () => unsubscribeFromMessages();
   }, [selectedUser, getMessagesByUserId, subscribeToMessages, unsubscribeFromMessages]);
 
@@ -37,7 +36,7 @@ function ChatContainer() {
   }, [messages]);
 
   const handleDelete = (e, messageId) => {
-    e.stopPropagation(); // Prevent opening image preview when clicking delete
+    e.stopPropagation();
     if (window.confirm("Delete this message? This will remove it for everyone.")) {
       deleteMessage(messageId);
     }
@@ -61,7 +60,7 @@ function ChatContainer() {
                       : "bg-slate-800 text-slate-200"
                   }`}
                 >
-                  {/* DELETE BUTTON: Only visible on hover for sender */}
+                  {/* DELETE button which is only visible on hover for sender */}
                   {msg.senderId === authUser._id && !msg.isOptimistic && (
                     <button
                       onClick={(e) => handleDelete(e, msg._id)}

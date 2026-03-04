@@ -27,7 +27,7 @@ function ChatPage() {
     <div className="relative w-full h-screen md:h-[800px] md:max-w-6xl mx-auto">
       <BorderAnimatedContainer>
 
-        {/* ================= MOBILE LAYOUT ================= */}
+        {/* For MOBILE LAYOUT  */}
         {isMobile ? (
           <>
             {!selectedUser ? (
@@ -48,7 +48,7 @@ function ChatPage() {
             )}
           </>
         ) : (
-          /* ================= DESKTOP LAYOUT (UNCHANGED) ================= */
+          /* For DESKTOP LAYOUT */
           <>
             {/* LEFT SIDE */}
             <div className="w-80 bg-slate-800/50 backdrop-blur-sm flex flex-col">

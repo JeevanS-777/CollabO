@@ -67,13 +67,13 @@ export const useCallStore = create((set, get) => ({
     const oldStream = get().localStream;
 
     try {
-      // 1. Get new stream with BOTH Video and Audio
+      // 1. Get new stream with both Video and Audio
       const newStream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: newMode },
         audio: true
       });
 
-      // 2. CRITICAL: Replace both tracks in the active peer connection
+      // 2. Replace both tracks in the active peer connection
       if (currentCall && currentCall.peerConnection) {
         const senders = currentCall.peerConnection.getSenders();
         
@@ -82,7 +82,7 @@ export const useCallStore = create((set, get) => ({
         const videoSender = senders.find(s => s.track?.kind === "video");
         if (videoSender) await videoSender.replaceTrack(videoTrack);
 
-        // Replace Audio (This fixes the mute bug!)
+        // Replace Audio
         const audioTrack = newStream.getAudioTracks()[0];
         const audioSender = senders.find(s => s.track?.kind === "audio");
         if (audioSender) await audioSender.replaceTrack(audioTrack);
